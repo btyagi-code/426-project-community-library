@@ -1,8 +1,8 @@
-# 426 Project — Community Connect
+# 426 Project — Community Library
 
 ## Team Name
 
-Community Library System
+Community Library 
 
 ## Team Roster
 
