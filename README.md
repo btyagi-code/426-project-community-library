@@ -2,7 +2,7 @@
 
 ## Team Name
 
-Community Connect
+Community Library System
 
 ## Team Roster
 
@@ -13,4 +13,4 @@ Community Connect
 
 
 ## Domain Description
-Our system simulates an emergency housing coordination platform that helps displaced students find and reserve temporary off-campus housing after a sudden loss of their residence, such as the November 2025 fire at Olympia Place in Amherst that displaced roughly 230 UMass Amherst students with almost no notice. A single server cannot handle the load in this scenario because demand spikes instantly and all at once: hundreds of students, along with university staff and local landlords with available units, all need to search, list, and reserve housing within the same narrow window, and available units are extremely limited relative to demand. This is meaningful from a Computing for the Common Good standpoint because the people affected are UMass Amherst students who, often with only the belongings they had on them, need fast and reliable access to safe housing; a slow or unavailable system, or one that double-books a unit that only exists once, can leave a student without a place to stay during finals or the rest of the semester through no fault of their own.
+Our system simulates a community library network that manages book availability, digital resource lending, holds, and borrowing activity across multiple library branches. A single server could become insufficient during periods of high demand, such as after-school hours, summer reading programs, registration periods, or the release of popular books, when many patrons search the catalog, place holds, and borrow digital materials at the same time. The system supports students, low-income families, older adults, and residents without reliable home internet who depend on public libraries for free access to educational materials, technology, and community services. When the system is slow or unavailable, patrons may be unable to locate needed resources, access digital materials, or determine whether an item is available before traveling to a branch, while library staff may struggle to manage accurate lending and inventory information.
