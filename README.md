@@ -16,3 +16,9 @@ Community Library
 
 ## Domain Description
 Our system simulates a community library network that manages book availability, digital resource lending, holds, and borrowing activity across multiple library branches. A single server could become insufficient during periods of high demand, such as after-school hours, summer reading programs, registration periods, or the release of popular books, when many patrons search the catalog, place holds, and borrow digital materials at the same time. The system supports students, low-income families, older adults, and residents without reliable home internet who depend on public libraries for free access to educational materials, technology, and community services. When the system is slow or unavailable, patrons may be unable to locate needed resources, access digital materials, or determine whether an item is available before traveling to a branch, while library staff may struggle to manage accurate lending and inventory information. The library resource aggregator requires multiple server systems in order to support all community members with varying needs, for instance, in processing many student requests during the school year when projects and readings are frequently assigned. Our system's ability to coordinate simultaneous background services will ensure all items and their details are constantly up-to-date and reflected across all user sessions. 
+
+## Documentation
+
+- [Project Description](docs/PROJECT.md)
+- [Services](docs/SERVICES.md)
+- [Service Level Objectives](docs/SLO.md)
