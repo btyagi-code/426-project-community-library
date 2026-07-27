@@ -36,13 +36,8 @@ flowchart LR
 ```
 
 
- a patron hits `gateway-service`'s `/availability` endpoint with a
-book title. The gateway fans that out into per-branch lookups and calls
-`catalog-sidecar` instead of `catalog-service` directly. The sidecar forwards
-each request to `catalog-service` unchanged, logs it (method, path, response
-status, latency), and relays the response back. `catalog-service` has no
-awareness the sidecar is there. The gateway combines the per-branch results
-into one response for the patron.
+Ideas while making: A patron sends a book title to the gateway service’s `/availability` endpoint. The gateway checks each branch through the catalog sidecar, which forwards requests to the catalog service, logs request details and latency, and returns the responses. The catalog service is unaware of the sidecar. The gateway then combines all branch results into one response.
+
 .
 
 
