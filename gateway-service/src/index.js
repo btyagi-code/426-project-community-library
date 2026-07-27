@@ -1,27 +1,16 @@
 import express from 'express';
 
 const app = express();
-
-// In Docker Compose, services reach each other by service name, not
-// localhost. CATALOG_SERVICE_URL is overridable so this also works
-// when running standalone against a locally-started catalog-service.
 const CATALOG_SERVICE_URL = process.env.CATALOG_SERVICE_URL || 'http://catalog-service:3000';
 
 const BRANCHES = ['Downtown', 'North', 'East'];
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-// gateway-service's own aggregation overhead, separate from whatever
-// latency each downstream branch call adds.
 const ownProcessingLatency = () =>
   Math.random() < 0.9
     ? 15 + Math.random() * 60
     : 100 + Math.random() * 100;
 
-// Calls catalog-service for a single branch, with its own timeout so one
-// slow or unreachable branch can't drag down the whole request. Matches
-// our SLO commitment: if a branch is down, return what we have from the
-// others instead of failing the entire /availability call.
 const BRANCH_TIMEOUT_MS = 600;
 
 async function fetchBranch(title, branch) {
