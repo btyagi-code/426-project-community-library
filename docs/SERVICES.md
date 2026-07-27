@@ -20,24 +20,24 @@ This is our first pass based on the domain (catalog browsing, holds, digital len
 flowchart LR
     Patron([Patron / curl])
 
-    subgraph compose[docker compose]
-        Gateway[gateway-service<br/>:3000]
-        Sidecar[catalog-sidecar<br/>:3002]
-        Catalog[catalog-service<br/>:3001]
+    subgraph Compose[Docker Compose network]
+        Gateway[gateway-service<br/>container port 3000<br/>host port 3000]
+        Sidecar[catalog-sidecar<br/>container port 3000<br/>host port 3002]
+        Catalog[catalog-service<br/>container port 3000<br/>host port 3001]
     end
 
     Patron -- "GET /availability?title=..." --> Gateway
-    Gateway -- "GET /catalog/search<br/>(per branch)" --> Sidecar
-    Sidecar -- forwards request<br/>unmodified --> Catalog
-    Catalog -- JSON response --> Sidecar
-    Sidecar -. "logs method, path,<br/>status, latency" .-> Sidecar
-    Sidecar -- JSON response --> Gateway
-    Gateway -- aggregated availability --> Patron
-```
 
+    Gateway -- "GET /catalog/search?title=...&branch=...<br/>one request per branch" --> Sidecar
 
-Ideas while making: A patron sends a book title to the gateway service’s `/availability` endpoint. The gateway checks each branch through the catalog sidecar, which forwards requests to the catalog service, logs request details and latency, and returns the responses. The catalog service is unaware of the sidecar. The gateway then combines all branch results into one response.
+    Sidecar -- "forwards request unchanged" --> Catalog
 
-.
+    Catalog -- "branch-specific JSON response" --> Sidecar
+
+    Sidecar -. "logs method, path, status, and latency" .-> Sidecar
+
+    Sidecar -- "relays response" --> Gateway
+
+    Gateway -- "aggregated branch availability" --> Patron
 
 

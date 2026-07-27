@@ -1,6 +1,6 @@
 # Service Level Objectives
 
-## catalog-service (Bhawna's)
+## catalog-service 
 
 **Latency**: The GET /catalog/search endpoint must respond within 400ms at p95. If someone's standing at their laptop trying to decide whether to walk to a branch, a slow lookup basically defeats the purpose. They'll just leave without an answer.
 
@@ -18,7 +18,7 @@
 
 **Reliability**: The checkout endpoint must succeed at least 99.9% of the time and must occur effectively once. Our library system must ensure any checkout executes at least once. Also, the checkout operation must be idempotent, via client-server idempotency keys, so users can safely repeat a checkout if they don't receive a response back. Thus, any checkout by a user is realistically guaranteed to be done exactly once -- a checkout request will cause a single computation on the server-side and repeated requests simply return the previously-computed result, not duplicate checkouts, for any given resource. 
 
-## gateway-service (shared)
+## gateway-service 
 
 **Latency**: The cross branch availability endpoint must respond within 700ms at p95, since it has to call out to multiple branch catalogs before returning one combined result.
 
