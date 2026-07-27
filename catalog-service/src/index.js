@@ -89,15 +89,18 @@ const delay = (ms) =>
   });
 
 function getLatency() {
+  // 95% of requests complete between 20ms and 150ms.
   if (Math.random() < 0.95) {
     return 20 + Math.random() * 130;
   }
 
-  return 300 + Math.random() * 150;
+  // 5% simulate slower database lookups.
+  // The maximum simulated latency remains below 400ms.
+  return 250 + Math.random() * 140;
 }
 
 app.get('/health', (req, res) => {
-  res.json({
+  return res.json({
     service: 'catalog-service',
     status: 'healthy',
   });
@@ -122,7 +125,9 @@ app.get('/catalog/search', async (req, res) => {
 
   await delay(getLatency());
 
-  if (Math.random() < 0.01) {
+  // Simulate a 0.5% temporary failure rate.
+  // This gives the service margin above the 99% reliability SLO.
+  if (Math.random() < 0.005) {
     return res.status(503).json({
       error: 'catalog temporarily unavailable',
     });

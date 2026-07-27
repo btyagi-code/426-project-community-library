@@ -8,7 +8,10 @@ const CATALOG_SERVICE_URL =
   'http://catalog-sidecar:3000';
 
 const BRANCHES = ['Downtown', 'North', 'East'];
-const BRANCH_TIMEOUT_MS = 600;
+
+// A branch request is stopped before it can cause the gateway
+// to exceed the 700ms latency objective.
+const BRANCH_TIMEOUT_MS = 500;
 
 const delay = (ms) =>
   new Promise((resolve) => {
@@ -16,11 +19,13 @@ const delay = (ms) =>
   });
 
 function ownProcessingLatency() {
-  if (Math.random() < 0.9) {
-    return 15 + Math.random() * 60;
+  // 95% of gateway processing completes between 10ms and 60ms.
+  if (Math.random() < 0.95) {
+    return 10 + Math.random() * 50;
   }
 
-  return 100 + Math.random() * 100;
+  // Simulate occasional additional gateway processing work.
+  return 75 + Math.random() * 75;
 }
 
 async function fetchBranch(title, branch) {
@@ -48,6 +53,7 @@ async function fetchBranch(title, branch) {
         branch,
         ok: false,
         status: response.status,
+        error: `catalog returned status ${response.status}`,
       };
     }
 
@@ -67,7 +73,7 @@ async function fetchBranch(title, branch) {
       error:
         error.name === 'AbortError'
           ? 'timeout'
-          : 'unreachable',
+          : 'catalog unavailable',
     };
   } finally {
     clearTimeout(timeout);
@@ -75,7 +81,7 @@ async function fetchBranch(title, branch) {
 }
 
 app.get('/health', (req, res) => {
-  res.json({
+  return res.json({
     service: 'gateway-service',
     status: 'healthy',
   });
@@ -95,6 +101,8 @@ app.get('/availability', async (req, res) => {
 
   await delay(ownProcessingLatency());
 
+  // All branch calls run in parallel so their response times
+  // are not added together.
   const outcomes = await Promise.all(
     BRANCHES.map((branch) =>
       fetchBranch(title, branch)
@@ -112,7 +120,9 @@ app.get('/availability', async (req, res) => {
 
       const formats = outcome.results.map((entry) => ({
         format: entry.format,
-        available_copies: entry.available_copies,
+        available_copies: Number(
+          entry.available_copies || 0
+        ),
       }));
 
       return {
@@ -124,12 +134,16 @@ app.get('/availability', async (req, res) => {
 
   const unavailable_branches = outcomes
     .filter((outcome) => !outcome.ok)
-    .map((outcome) => outcome.branch);
+    .map((outcome) => ({
+      branch: outcome.branch,
+      reason: outcome.error,
+    }));
 
   return res.json({
     title,
     branches,
     unavailable_branches,
+    partial_result: unavailable_branches.length > 0,
   });
 });
 
