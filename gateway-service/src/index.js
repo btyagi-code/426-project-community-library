@@ -5,7 +5,7 @@ const PORT = process.env.PORT || 3000;
 
 const CATALOG_SERVICE_URL =
   process.env.CATALOG_SERVICE_URL ||
-  'http://catalog-sidecar:3000';
+  'http://catalog-ambassador:3000';
 
 const BRANCHES = ['Downtown', 'North', 'East'];
 

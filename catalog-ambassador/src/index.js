@@ -11,7 +11,7 @@ const CATALOG_SERVICE_URL =
 /*
  * Capture request bodies without interpreting them.
  * The current catalog endpoint uses GET, but this keeps the proxy
- * ready for other HTTP methods without changing the sidecar.
+ * ready for other HTTP methods without changing the ambassador.
  */
 app.use(
   express.raw({
@@ -62,7 +62,7 @@ app.use(async (req, res) => {
     const elapsedMs = Date.now() - startTime;
 
     console.log(
-      `[catalog-sidecar] ${req.method} ${req.originalUrl} ` +
+      `[catalog-ambassador] ${req.method} ${req.originalUrl} ` +
         `-> ${upstreamResponse.status} (${elapsedMs}ms)`
     );
 
@@ -80,7 +80,7 @@ app.use(async (req, res) => {
     const elapsedMs = Date.now() - startTime;
 
     console.error(
-      `[catalog-sidecar] ${req.method} ${req.originalUrl} ` +
+      `[catalog-ambassador] ${req.method} ${req.originalUrl} ` +
         `-> ERROR (${elapsedMs}ms): ${error.message}`
     );
 
@@ -92,6 +92,6 @@ app.use(async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(
-    `catalog-sidecar listening on port ${PORT}`
+    `catalog-ambassador listening on port ${PORT}`
   );
 });

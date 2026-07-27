@@ -1,5 +1,5 @@
 {
-  "name": "catalog-sidecar",
+  "name": "catalog-ambassador",
   "version": "1.0.0",
   "type": "module",
   "main": "src/index.js",

@@ -15,29 +15,27 @@ This is our first pass based on the domain (catalog browsing, holds, digital len
 
 
 # Diagram 
-
 ```mermaid
 flowchart LR
     Patron([Patron / curl])
 
     subgraph Compose[Docker Compose network]
         Gateway[gateway-service<br/>container port 3000<br/>host port 3000]
-        Sidecar[catalog-sidecar<br/>container port 3000<br/>host port 3002]
+        Ambassador[catalog-ambassador<br/>ambassador pattern<br/>container port 3000<br/>host port 3002]
         Catalog[catalog-service<br/>container port 3000<br/>host port 3001]
     end
 
     Patron -- "GET /availability?title=..." --> Gateway
 
-    Gateway -- "GET /catalog/search?title=...&branch=...<br/>one request per branch" --> Sidecar
+    Gateway -- "GET /catalog/search?title=...&branch=...<br/>one request per branch" --> Ambassador
 
-    Sidecar -- "forwards request unchanged" --> Catalog
+    Ambassador -- "forwards request unchanged" --> Catalog
 
-    Catalog -- "branch-specific JSON response" --> Sidecar
+    Catalog -- "branch-specific JSON response" --> Ambassador
 
-    Sidecar -. "logs method, path, status, and latency" .-> Sidecar
+    Ambassador -. "logs method, path, status, and latency" .-> Ambassador
 
-    Sidecar -- "relays response" --> Gateway
+    Ambassador -- "relays response" --> Gateway
 
     Gateway -- "aggregated branch availability" --> Patron
-
-
+```
