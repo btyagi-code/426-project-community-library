@@ -1,7 +1,7 @@
 import {
   findAllHolds,
   saveHold
-} from "../repositories/holdsRepository.js";
+} from "../repositories/holdsRepositories.js";
 
 const cleanText = (value) =>
   typeof value === "string" ? value.trim() : "";
