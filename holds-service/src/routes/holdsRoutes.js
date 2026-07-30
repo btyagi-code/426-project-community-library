@@ -2,7 +2,7 @@ import express from "express";
 import {
   getHolds,
   createHold
-} from "../controllers/holdsController.js";
+} from "../controllers/holdsControllers.js";
 
 const router = express.Router();
 
