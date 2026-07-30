@@ -1,7 +1,7 @@
 import {
   listHolds,
   placeHold
-} from "../services/holdsService.js";
+} from "../services/holdsServices.js";
 
 export const getHolds = async (req, res) => {
   try {
