@@ -45,6 +45,10 @@ const catalog = [
   },
 ];
 
+const format = (val) => {
+  typeof val === 'string' ? val.trim() : '';
+}
+
 const delay = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
 
 function getLatency() {
@@ -60,6 +64,22 @@ function getLatency() {
 export const checkout = async (input) => {
   const title = format(input.title); 
   const branch = format(input.branch);
+
+  if (!title) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'A title is required',
+    }
+  }
+
+  if (!branch) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'A branch is required',
+    }
+  }
 
   await delay(getLatency()); 
 
