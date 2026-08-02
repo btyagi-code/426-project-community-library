@@ -1,4 +1,6 @@
+import os from 'node:os';
 import express from 'express';
+import { createClient } from 'redis';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -7,10 +9,24 @@ const CATALOG_SERVICE_URL =
   process.env.CATALOG_SERVICE_URL ||
   'http://catalog-ambassador:3000';
 
+const REDIS_URL = process.env.REDIS_URL || 'redis://redis:6379';
+
+
+const INSTANCE_ID = os.hostname();
+const CACHE_TTL_SECONDS = 5;
+
+const redisClient = createClient({ url: REDIS_URL });
+
+redisClient.on('error', (err) => {
+  console.error(
+    `[gateway-service:${INSTANCE_ID}] redis error: ${err.message}`
+  );
+});
+
+await redisClient.connect();
+
 const BRANCHES = ['Downtown', 'North', 'East'];
 
-// A branch request is stopped before it can cause the gateway
-// to exceed the 700ms latency objective.
 const BRANCH_TIMEOUT_MS = 500;
 
 const delay = (ms) =>
@@ -19,12 +35,12 @@ const delay = (ms) =>
   });
 
 function ownProcessingLatency() {
-  // 95% of gateway processing completes between 10ms and 60ms.
+
   if (Math.random() < 0.95) {
     return 10 + Math.random() * 50;
   }
 
-  // Simulate occasional additional gateway processing work.
+
   return 75 + Math.random() * 75;
 }
 
@@ -83,6 +99,7 @@ async function fetchBranch(title, branch) {
 app.get('/health', (req, res) => {
   return res.json({
     service: 'gateway-service',
+    instance: INSTANCE_ID,
     status: 'healthy',
   });
 });
@@ -99,10 +116,37 @@ app.get('/availability', async (req, res) => {
     });
   }
 
+  const cacheKey = `availability:${title.toLowerCase()}`;
+
+
+  try {
+    const cached = await redisClient.get(cacheKey);
+
+    if (cached) {
+      console.log(
+        `[gateway-service:${INSTANCE_ID}] CACHE HIT "${title}"`
+      );
+
+      return res.json({
+        ...JSON.parse(cached),
+        cache: 'HIT',
+        instance: INSTANCE_ID,
+      });
+    }
+  } catch (error) {
+    console.error(
+      `[gateway-service:${INSTANCE_ID}] redis GET failed: ${error.message}`
+    );
+  }
+
+
+  console.log(
+    `[gateway-service:${INSTANCE_ID}] CACHE MISS "${title}"`
+  );
+
   await delay(ownProcessingLatency());
 
-  // All branch calls run in parallel so their response times
-  // are not added together.
+
   const outcomes = await Promise.all(
     BRANCHES.map((branch) =>
       fetchBranch(title, branch)
@@ -139,11 +183,27 @@ app.get('/availability', async (req, res) => {
       reason: outcome.error,
     }));
 
-  return res.json({
+  const payload = {
     title,
     branches,
     unavailable_branches,
     partial_result: unavailable_branches.length > 0,
+  };
+
+  try {
+    await redisClient.set(cacheKey, JSON.stringify(payload), {
+      EX: CACHE_TTL_SECONDS,
+    });
+  } catch (error) {
+    console.error(
+      `[gateway-service:${INSTANCE_ID}] redis SET failed: ${error.message}`
+    );
+  }
+
+  return res.json({
+    ...payload,
+    cache: 'MISS',
+    instance: INSTANCE_ID,
   });
 });
 

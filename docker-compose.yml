@@ -14,12 +14,57 @@ services:
       catalog-service:
         condition: service_healthy
 
-  gateway-service:
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  gateway-service-1:
     build: ./gateway-service
-    ports:
-      - "3000:3000"
     environment:
       - CATALOG_SERVICE_URL=http://catalog-ambassador:3000
+      - REDIS_URL=redis://redis:6379
     depends_on:
       catalog-ambassador:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  gateway-service-2:
+    build: ./gateway-service
+    environment:
+      - CATALOG_SERVICE_URL=http://catalog-ambassador:3000
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      catalog-ambassador:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  gateway-service-3:
+    build: ./gateway-service
+    environment:
+      - CATALOG_SERVICE_URL=http://catalog-ambassador:3000
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      catalog-ambassador:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      gateway-service-1:
+        condition: service_healthy
+      gateway-service-2:
+        condition: service_healthy
+      gateway-service-3:
         condition: service_healthy
