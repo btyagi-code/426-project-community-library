@@ -16,19 +16,6 @@ This is our first pass based on the domain (catalog browsing, holds, digital len
 
 # Diagram 
 
-Sprint 3 adds two things on top of the Sprint 2 picture: `gateway-service`
-is now three replicas behind Caddy (load balancing, the "replicated
-service" pattern), and `/availability` is cached in Redis so repeat
-lookups for the same title skip the branch fan-out entirely.
-
-This diagram also fixes a gap from Sprint 2: `holds-service` and
-`lending-service` exist in the repo with working code and their own
-`/health` endpoints, but neither is wired into `docker-compose.yml` or
-into the gateway's request flow yet. They're shown below as real,
-independently running services rather than left off the diagram or
-drawn as connected to something they aren't actually connected to yet.
-Wiring them into cross-service flows is expected in a later sprint.
-
 ```mermaid
 flowchart LR
     Patron([Patron / curl / k6])
@@ -78,8 +65,8 @@ flowchart LR
 
     Caddy --> Patron
 
-    subgraph Standalone[Built, running, not yet wired into a cross-service flow]
+    subgraph Standalone[Implemented standalone services, not yet wired into Sprint 3]
         Holds[holds-service<br/>Grace<br/>/health, /holds<br/>container port 3002]
         Lending[lending-service<br/>Erik<br/>/health, /loan<br/>container port 3003]
     end
-```
+    
