@@ -5,11 +5,6 @@ const app = express();
 const port = process.env.PORT || 3003;
 
 app.use(express.json());
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-const format = (val) => {
-  typeof val === 'string' ? val.trim() : '';
-}
 
 app.get('/health', (req, res) => {
   return res.json({
@@ -19,7 +14,6 @@ app.get('/health', (req, res) => {
 });
 
 app.post('/loan', async (req, res) => {
-
   try {
     const result = await checkout(req.body);
 
