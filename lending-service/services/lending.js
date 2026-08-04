@@ -46,7 +46,7 @@ const catalog = [
 ];
 
 const format = (val) => {
-  typeof val === 'string' ? val.trim() : '';
+  return typeof val === 'string' ? val.trim() : '';
 }
 
 const delay = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
