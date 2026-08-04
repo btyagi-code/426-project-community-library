@@ -127,6 +127,9 @@ app.get('/availability', async (req, res) => {
         `[gateway-service:${INSTANCE_ID}] CACHE HIT "${title}"`
       );
 
+    res.set('X-Cache', 'HIT'); //adds cache status to response header
+    res.set('X-Cache Instance', INSTANCE_ID);
+      
       return res.json({
         ...JSON.parse(cached),
         cache: 'HIT',
@@ -200,6 +203,9 @@ app.get('/availability', async (req, res) => {
     );
   }
 
+  res.set('X-Cache', 'MISS'); //adds cache status to response header
+  res.set('X-Cache Instance', INSTANCE_ID);
+  
   return res.json({
     ...payload,
     cache: 'MISS',
