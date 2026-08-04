@@ -1,5 +1,5 @@
 import express from 'express';
-import checkout from './services/lending.js';
+import { checkout } from './services/lending.js';
 
 const app = express();
 const port = process.env.PORT || 3003;
