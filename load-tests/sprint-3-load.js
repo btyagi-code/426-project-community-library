@@ -1,5 +1,11 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
+import { Counter, Trend } from 'k6/metrics';
+
+const cacheHits = new Counter('cache_hits');
+const cacheMisses = new Counter('cache_misses');
+const cacheHitDuration = new Trend('cache_hit_duration');
+const cacheMissDuration = new Trend('cache_miss_duration');
 
 export const options = {
   vus: 10,
@@ -25,7 +31,7 @@ function pickTitle() {
   if (Math.random() < 0.5) {
     return POPULAR_TITLES[
       Math.floor(Math.random() * POPULAR_TITLES.length)
-    ];
+    ];                    
   }
 
   return OTHER_TITLES[
@@ -47,8 +53,19 @@ export default function () {
       } catch (err) {
         return false;
       }
+      'X-Cache has header': (r) =>
+      r.headers['X-Cache'] === 'HIT' || r.headers['X-Cache'] === 'MISS',
     },
   });
+
+  if (res.headers['X-Cache'] === 'HIT') {
+    cacheHits.add(1); 
+    cacheHitDuration.add(res.timings.duration);
+  } 
+  else if (res.headers['X-Cache'] === 'MISS') {
+    cacheMisses.add(1);
+    cacheMissDuration.add(res.timings.duration);
+  }
 
   sleep(1);
 }
