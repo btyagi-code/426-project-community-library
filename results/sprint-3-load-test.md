@@ -13,7 +13,7 @@
 ## Results
 
 | Metric | Result |
-|---|---:|
+|---|---|
 | p50 latency | 5.96 ms |
 | p95 latency | 293.03 ms |
 | p99 latency | 413.16 ms |
