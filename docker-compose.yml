@@ -55,6 +55,11 @@ services:
       redis:
         condition: service_healthy
 
+  lending-service:
+    builld: ./lending-service
+    ports:
+      - "3003:3003"
+
   caddy:
     image: caddy:2-alpine
     ports:
