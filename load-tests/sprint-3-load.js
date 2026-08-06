@@ -53,8 +53,9 @@ export default function () {
       } catch (err) {
         return false;
       }
-      'X-Cache has header': (r) =>
-      r.headers['X-Cache'] === 'HIT' || r.headers['X-Cache'] === 'MISS',
+    },
+    'X-Cache has header': (r) => {
+      r.headers['X-Cache'] === 'HIT' || r.headers['X-Cache'] === 'MISS'
     },
   });
 
