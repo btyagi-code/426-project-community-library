@@ -98,9 +98,9 @@ async function fetchBranch(title, branch) {
 
 app.get('/health', (req, res) => {
   return res.json({
+    status: 'ok',
     service: 'gateway-service',
     instance: INSTANCE_ID,
-    status: 'healthy',
   });
 });
 

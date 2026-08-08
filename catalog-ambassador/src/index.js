@@ -13,6 +13,19 @@ const CATALOG_SERVICE_URL =
  * The current catalog endpoint uses GET, but this keeps the proxy
  * ready for other HTTP methods without changing the ambassador.
  */
+/*
+ * The ambassador's own health, checked by Docker/Compose, is separate
+ * from catalog-service's health. This route must come before the
+ * catch-all proxy below or /health would be forwarded upstream instead
+ * of answering for this container.
+ */
+app.get('/health', (req, res) => {
+  return res.json({
+    status: 'ok',
+    service: 'catalog-ambassador',
+  });
+});
+
 app.use(
   express.raw({
     type: '*/*',
@@ -40,10 +53,7 @@ app.use(async (req, res) => {
       headers,
     };
 
-    /*
-     * GET and HEAD requests cannot include a request body.
-     * Other methods forward the original request body when present.
-     */
+    
     if (
       req.method !== 'GET' &&
       req.method !== 'HEAD' &&

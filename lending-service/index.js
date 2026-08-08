@@ -8,8 +8,8 @@ app.use(express.json());
 
 app.get('/health', (req, res) => {
   return res.json({
+    status: 'ok',
     service: 'lending-service',
-    status: 'healthy',
   });
 });
 

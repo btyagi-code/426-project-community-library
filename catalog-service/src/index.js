@@ -101,8 +101,8 @@ function getLatency() {
 
 app.get('/health', (req, res) => {
   return res.json({
+    status: 'ok',
     service: 'catalog-service',
-    status: 'healthy',
   });
 });
 
