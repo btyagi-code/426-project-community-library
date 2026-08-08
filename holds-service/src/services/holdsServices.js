@@ -2,6 +2,7 @@ import {
   findAllHolds,
   saveHold
 } from "../repositories/holdsRepositories.js";
+import { publishHoldNotification } from "../queue/publisher.js";
 
 const cleanText = (value) =>
   typeof value === "string" ? value.trim() : "";
@@ -65,6 +66,8 @@ export const placeHold = async (input) => {
   };
 
   await saveHold(hold);
+
+  await publishHoldNotification(hold);
 
   return {
     ok: true,
