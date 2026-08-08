@@ -1,67 +1,93 @@
 import express from "express";
-import { startConsumer, state, subscribe, unsubscribe } from "./consumer.js";
+import amqp from "amqplib";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json());
+const RABBITMQ_URL =
+  process.env.RABBITMQ_URL || "amqp://guest:guest@rabbitmq:5672";
+
+const QUEUE_NAME = "hold-notifications";
 
 app.get("/health", (req, res) => {
-  return res.json({
-    status: "ok",
-    service: "notification-worker",
-    faultMode: state.faultMode,
-  });
-});
-
-const VALID_FAULT_MODES = ["none", "crash", "slow"];
-
-/*
- * Toggle fault injection on demand, e.g.:
- *   curl -X POST http://localhost:3005/fault/crash
- *   curl -X POST http://localhost:3005/fault/none
- */
-app.post("/fault/:mode", async (req, res) => {
-  const { mode } = req.params;
-
-  if (!VALID_FAULT_MODES.includes(mode)) {
-    return res.status(400).json({
-      error: `mode must be one of: ${VALID_FAULT_MODES.join(", ")}`,
-    });
-  }
-
-  const previousMode = state.faultMode;
-  state.faultMode = mode;
-
-  try {
-    if (mode === "crash") {
-      await unsubscribe();
-    } else if (previousMode === "crash") {
-      await subscribe();
-    }
-  } catch (error) {
-    console.error(
-      `[notification-worker] failed to update subscription for mode "${mode}": ${error.message}`
-    );
-  }
-
-  console.log(`[notification-worker] fault mode set to "${mode}"`);
-
-  return res.json({
-    ok: true,
-    faultMode: state.faultMode,
-  });
+  res.json({ status: "ok" });
 });
 
 app.listen(PORT, () => {
-  console.log(
-    `notification-worker admin server listening on port ${PORT}`
-  );
+  console.log(`notification-worker admin server listening on port ${PORT}`);
 });
 
-startConsumer().catch((error) => {
-  console.error(
-    `[notification-worker] failed to start consumer: ${error.message}`
-  );
-  process.exit(1);
-});
+async function startConsumer() {
+  while (true) {
+    try {
+      console.log("[notification-worker] connecting to RabbitMQ...");
+
+      const connection = await amqp.connect(RABBITMQ_URL);
+      const channel = await connection.createChannel();
+
+      await channel.assertQueue(QUEUE_NAME, {
+        durable: true,
+      });
+
+      channel.prefetch(1);
+
+      console.log(
+        `[notification-worker] waiting for messages on ${QUEUE_NAME}`
+      );
+
+      channel.consume(QUEUE_NAME, async (message) => {
+        if (!message) return;
+
+        try {
+          const data = JSON.parse(message.content.toString());
+
+          console.log(
+            "[notification-worker] PICKED UP notification:",
+            data
+          );
+
+          // Simulate async notification processing
+          await new Promise((resolve) => setTimeout(resolve, 500));
+
+          console.log(
+            "[notification-worker] PROCESSED notification:",
+            data
+          );
+
+          channel.ack(message);
+        } catch (error) {
+          console.error(
+            "[notification-worker] failed to process message:",
+            error.message
+          );
+
+          channel.nack(message, false, true);
+        }
+      });
+
+      connection.on("close", () => {
+        console.error(
+          "[notification-worker] RabbitMQ connection closed"
+        );
+        process.exit(1);
+      });
+
+      connection.on("error", (error) => {
+        console.error(
+          "[notification-worker] RabbitMQ connection error:",
+          error.message
+        );
+      });
+
+      break;
+    } catch (error) {
+      console.error(
+        `[notification-worker] RabbitMQ not ready: ${error.message}. Retrying in 3 seconds...`
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+    }
+  }
+}
+
+startConsumer();
