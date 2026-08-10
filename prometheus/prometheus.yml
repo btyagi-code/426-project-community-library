@@ -1,0 +1,36 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: gateway-service
+    static_configs:
+      - targets:
+          - gateway-service-1:3000
+          - gateway-service-2:3000
+          - gateway-service-3:3000
+
+  - job_name: catalog-service
+    static_configs:
+      - targets:
+          - catalog-service:3000
+
+  - job_name: catalog-ambassador
+    static_configs:
+      - targets:
+          - catalog-ambassador:3000
+
+  - job_name: holds-service
+    static_configs:
+      - targets:
+          - holds-service:3002
+
+  - job_name: lending-service
+    static_configs:
+      - targets:
+          - lending-service:3003
+
+  - job_name: notification-worker
+    static_configs:
+      - targets:
+          - notification-worker:3000
