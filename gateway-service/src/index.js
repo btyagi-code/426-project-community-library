@@ -1,6 +1,11 @@
 import os from 'node:os';
 import express from 'express';
 import { createClient } from 'redis';
+import {
+  log,
+  metricsHandler,
+  requestMetricsMiddleware
+} from './observability.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -9,23 +14,32 @@ const CATALOG_SERVICE_URL =
   process.env.CATALOG_SERVICE_URL ||
   'http://catalog-ambassador:3000';
 
-const REDIS_URL = process.env.REDIS_URL || 'redis://redis:6379';
-
+const REDIS_URL =
+  process.env.REDIS_URL ||
+  'redis://redis:6379';
 
 const INSTANCE_ID = os.hostname();
 const CACHE_TTL_SECONDS = 5;
 
-const redisClient = createClient({ url: REDIS_URL });
+const redisClient = createClient({
+  url: REDIS_URL
+});
 
 redisClient.on('error', (err) => {
-  console.error(
-    `[gateway-service:${INSTANCE_ID}] redis error: ${err.message}`
-  );
+  log('error', 'redis error', {
+    service: 'gateway-service',
+    instance: INSTANCE_ID,
+    error: err.message
+  });
 });
 
 await redisClient.connect();
 
-const BRANCHES = ['Downtown', 'North', 'East'];
+const BRANCHES = [
+  'Downtown',
+  'North',
+  'East'
+];
 
 const BRANCH_TIMEOUT_MS = 500;
 
@@ -35,11 +49,9 @@ const delay = (ms) =>
   });
 
 function ownProcessingLatency() {
-
   if (Math.random() < 0.95) {
     return 10 + Math.random() * 50;
   }
-
 
   return 75 + Math.random() * 75;
 }
@@ -52,10 +64,11 @@ async function fetchBranch(title, branch) {
   }, BRANCH_TIMEOUT_MS);
 
   try {
-    const searchParams = new URLSearchParams({
-      title,
-      branch,
-    });
+    const searchParams =
+      new URLSearchParams({
+        title,
+        branch,
+      });
 
     const response = await fetch(
       `${CATALOG_SERVICE_URL}/catalog/search?${searchParams.toString()}`,
@@ -96,6 +109,9 @@ async function fetchBranch(title, branch) {
   }
 }
 
+// Week 6 observability middleware
+app.use(requestMetricsMiddleware);
+
 app.get('/health', (req, res) => {
   return res.json({
     status: 'ok',
@@ -103,6 +119,9 @@ app.get('/health', (req, res) => {
     instance: INSTANCE_ID,
   });
 });
+
+// Prometheus endpoint
+app.get('/metrics', metricsHandler);
 
 app.get('/availability', async (req, res) => {
   const title =
@@ -116,20 +135,27 @@ app.get('/availability', async (req, res) => {
     });
   }
 
-  const cacheKey = `availability:${title.toLowerCase()}`;
-
+  const cacheKey =
+    `availability:${title.toLowerCase()}`;
 
   try {
-    const cached = await redisClient.get(cacheKey);
+    const cached =
+      await redisClient.get(cacheKey);
 
     if (cached) {
-      console.log(
-        `[gateway-service:${INSTANCE_ID}] CACHE HIT "${title}"`
+      log('info', 'cache hit', {
+        service: 'gateway-service',
+        instance: INSTANCE_ID,
+        title,
+        cacheKey
+      });
+
+      res.set('X-Cache', 'HIT');
+      res.set(
+        'X-Cache-Instance',
+        INSTANCE_ID
       );
 
-      res.set('X-Cache', 'HIT'); //adds cache status to response header
-      res.set('X-Cache Instance', INSTANCE_ID);
-      
       return res.json({
         ...JSON.parse(cached),
         cache: 'HIT',
@@ -137,75 +163,108 @@ app.get('/availability', async (req, res) => {
       });
     }
   } catch (error) {
-    console.error(
-      `[gateway-service:${INSTANCE_ID}] redis GET failed: ${error.message}`
-    );
+    log('error', 'redis GET failed', {
+      service: 'gateway-service',
+      instance: INSTANCE_ID,
+      error: error.message
+    });
   }
 
+  log('info', 'cache miss', {
+    service: 'gateway-service',
+    instance: INSTANCE_ID,
+    title,
+    cacheKey
+  });
 
-  console.log(
-    `[gateway-service:${INSTANCE_ID}] CACHE MISS "${title}"`
+  await delay(
+    ownProcessingLatency()
   );
 
-  await delay(ownProcessingLatency());
-
-
-  const outcomes = await Promise.all(
-    BRANCHES.map((branch) =>
-      fetchBranch(title, branch)
-    )
-  );
+  const outcomes =
+    await Promise.all(
+      BRANCHES.map((branch) =>
+        fetchBranch(title, branch)
+      )
+    );
 
   const branches = outcomes
-    .filter((outcome) => outcome.ok)
+    .filter(
+      (outcome) => outcome.ok
+    )
     .map((outcome) => {
-      const availableCopies = outcome.results.reduce(
-        (total, entry) =>
-          total + Number(entry.available_copies || 0),
-        0
-      );
+      const availableCopies =
+        outcome.results.reduce(
+          (total, entry) =>
+            total +
+            Number(
+              entry.available_copies ||
+                0
+            ),
+          0
+        );
 
-      const formats = outcome.results.map((entry) => ({
-        format: entry.format,
-        available_copies: Number(
-          entry.available_copies || 0
-        ),
-      }));
+      const formats =
+        outcome.results.map(
+          (entry) => ({
+            format:
+              entry.format,
+            available_copies:
+              Number(
+                entry.available_copies ||
+                  0
+              ),
+          })
+        );
 
       return {
         branch: outcome.branch,
-        available_copies: availableCopies,
+        available_copies:
+          availableCopies,
         formats,
       };
     });
 
-  const unavailable_branches = outcomes
-    .filter((outcome) => !outcome.ok)
-    .map((outcome) => ({
-      branch: outcome.branch,
-      reason: outcome.error,
-    }));
+  const unavailable_branches =
+    outcomes
+      .filter(
+        (outcome) => !outcome.ok
+      )
+      .map((outcome) => ({
+        branch: outcome.branch,
+        reason: outcome.error,
+      }));
 
   const payload = {
     title,
     branches,
     unavailable_branches,
-    partial_result: unavailable_branches.length > 0,
+    partial_result:
+      unavailable_branches.length > 0,
   };
 
   try {
-    await redisClient.set(cacheKey, JSON.stringify(payload), {
-      EX: CACHE_TTL_SECONDS,
-    });
-  } catch (error) {
-    console.error(
-      `[gateway-service:${INSTANCE_ID}] redis SET failed: ${error.message}`
+    await redisClient.set(
+      cacheKey,
+      JSON.stringify(payload),
+      {
+        EX: CACHE_TTL_SECONDS,
+      }
     );
+  } catch (error) {
+    log('error', 'redis SET failed', {
+      service: 'gateway-service',
+      instance: INSTANCE_ID,
+      error: error.message
+    });
   }
 
-  res.set('X-Cache', 'MISS'); //adds cache status to response header
-  res.set('X-Cache Instance', INSTANCE_ID);
-  
+  res.set('X-Cache', 'MISS');
+  res.set(
+    'X-Cache-Instance',
+    INSTANCE_ID
+  );
+
   return res.json({
     ...payload,
     cache: 'MISS',
@@ -214,5 +273,16 @@ app.get('/availability', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`gateway-service listening on port ${PORT}`);
+  log(
+    'info',
+    'gateway-service started',
+    {
+      service: 'gateway-service',
+      instance: INSTANCE_ID,
+      port: Number(PORT),
+      catalogServiceUrl:
+        CATALOG_SERVICE_URL,
+      redisUrl: REDIS_URL
+    }
+  );
 });
