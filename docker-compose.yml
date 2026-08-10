@@ -221,3 +221,37 @@ services:
       timeout: 3s
       retries: 5
       start_period: 5s
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      catalog-service:
+        condition: service_healthy
+      catalog-ambassador:
+        condition: service_healthy
+      gateway-service-1:
+        condition: service_healthy
+      gateway-service-2:
+        condition: service_healthy
+      gateway-service-3:
+        condition: service_healthy
+      lending-service:
+        condition: service_healthy
+      holds-service:
+        condition: service_healthy
+      notification-worker:
+        condition: service_healthy
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3006:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
