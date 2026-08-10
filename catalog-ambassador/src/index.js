@@ -1,4 +1,9 @@
 import express from 'express';
+import {
+  log,
+  metricsHandler,
+  requestMetricsMiddleware
+} from './observability.js';
 
 const app = express();
 
@@ -8,17 +13,10 @@ const CATALOG_SERVICE_URL =
   process.env.CATALOG_SERVICE_URL ||
   'http://catalog-service:3000';
 
-/*
- * Capture request bodies without interpreting them.
- * The current catalog endpoint uses GET, but this keeps the proxy
- * ready for other HTTP methods without changing the ambassador.
- */
-/*
- * The ambassador's own health, checked by Docker/Compose, is separate
- * from catalog-service's health. This route must come before the
- * catch-all proxy below or /health would be forwarded upstream instead
- * of answering for this container.
- */
+// Track request count, status, and response time
+app.use(requestMetricsMiddleware);
+
+// Health endpoint for this ambassador container
 app.get('/health', (req, res) => {
   return res.json({
     status: 'ok',
@@ -26,6 +24,10 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Prometheus metrics endpoint
+app.get('/metrics', metricsHandler);
+
+// Capture request bodies without interpreting them
 app.use(
   express.raw({
     type: '*/*',
@@ -33,15 +35,19 @@ app.use(
   })
 );
 
+// Catch-all proxy
 app.use(async (req, res) => {
   const startTime = Date.now();
-  const targetUrl = `${CATALOG_SERVICE_URL}${req.originalUrl}`;
+
+  const targetUrl =
+    `${CATALOG_SERVICE_URL}${req.originalUrl}`;
 
   try {
     const headers = {};
 
     if (req.headers['content-type']) {
-      headers['content-type'] = req.headers['content-type'];
+      headers['content-type'] =
+        req.headers['content-type'];
     }
 
     if (req.headers.accept) {
@@ -53,7 +59,6 @@ app.use(async (req, res) => {
       headers,
     };
 
-    
     if (
       req.method !== 'GET' &&
       req.method !== 'HEAD' &&
@@ -68,40 +73,77 @@ app.use(async (req, res) => {
       requestOptions
     );
 
-    const responseBody = await upstreamResponse.text();
-    const elapsedMs = Date.now() - startTime;
+    const responseBody =
+      await upstreamResponse.text();
 
-    console.log(
-      `[catalog-ambassador] ${req.method} ${req.originalUrl} ` +
-        `-> ${upstreamResponse.status} (${elapsedMs}ms)`
-    );
+    const elapsedMs =
+      Date.now() - startTime;
+
+    log('info', 'proxied catalog request', {
+      service: 'catalog-ambassador',
+      method: req.method,
+      path: req.originalUrl,
+      upstreamStatus:
+        upstreamResponse.status,
+      upstreamResponseTimeMs:
+        elapsedMs,
+    });
 
     const contentType =
-      upstreamResponse.headers.get('content-type');
+      upstreamResponse.headers.get(
+        'content-type'
+      );
 
     if (contentType) {
-      res.set('content-type', contentType);
+      res.set(
+        'content-type',
+        contentType
+      );
     }
 
     return res
-      .status(upstreamResponse.status)
+      .status(
+        upstreamResponse.status
+      )
       .send(responseBody);
-  } catch (error) {
-    const elapsedMs = Date.now() - startTime;
 
-    console.error(
-      `[catalog-ambassador] ${req.method} ${req.originalUrl} ` +
-        `-> ERROR (${elapsedMs}ms): ${error.message}`
+  } catch (error) {
+    const elapsedMs =
+      Date.now() - startTime;
+
+    log(
+      'error',
+      'catalog-service unreachable',
+      {
+        service:
+          'catalog-ambassador',
+        method: req.method,
+        path: req.originalUrl,
+        responseTimeMs:
+          elapsedMs,
+        error: error.message,
+      }
     );
 
-    return res.status(502).json({
-      error: 'catalog-service unreachable',
-    });
+    return res
+      .status(502)
+      .json({
+        error:
+          'catalog-service unreachable',
+      });
   }
 });
 
 app.listen(PORT, () => {
-  console.log(
-    `catalog-ambassador listening on port ${PORT}`
+  log(
+    'info',
+    'catalog-ambassador started',
+    {
+      service:
+        'catalog-ambassador',
+      port: Number(PORT),
+      upstream:
+        CATALOG_SERVICE_URL,
+    }
   );
 });
