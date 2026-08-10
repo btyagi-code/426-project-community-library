@@ -1,5 +1,10 @@
 import express from "express";
 import amqp from "amqplib";
+import {
+  log,
+  metricsHandler,
+  requestMetricsMiddleware
+} from "./observability.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -9,18 +14,27 @@ const RABBITMQ_URL =
 
 const QUEUE_NAME = "hold-notifications";
 
+app.use(requestMetricsMiddleware);
+
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
+app.get("/metrics", metricsHandler);
+
 app.listen(PORT, () => {
-  console.log(`notification-worker admin server listening on port ${PORT}`);
+  log("info", "notification-worker admin server started", {
+    service: "notification-worker",
+    port: Number(PORT)
+  });
 });
 
 async function startConsumer() {
   while (true) {
     try {
-      console.log("[notification-worker] connecting to RabbitMQ...");
+      log("info", "connecting to RabbitMQ", {
+        service: "notification-worker"
+      });
 
       const connection = await amqp.connect(RABBITMQ_URL);
       const channel = await connection.createChannel();
@@ -31,9 +45,10 @@ async function startConsumer() {
 
       channel.prefetch(1);
 
-      console.log(
-        `[notification-worker] waiting for messages on ${QUEUE_NAME}`
-      );
+      log("info", "waiting for messages", {
+        service: "notification-worker",
+        queue: QUEUE_NAME
+      });
 
       channel.consume(QUEUE_NAME, async (message) => {
         if (!message) return;
@@ -41,49 +56,58 @@ async function startConsumer() {
         try {
           const data = JSON.parse(message.content.toString());
 
-          console.log(
-            "[notification-worker] PICKED UP notification:",
-            data
-          );
+          log("info", "picked up notification", {
+            service: "notification-worker",
+            holdId: data.holdId,
+            patronName: data.patronName,
+            bookTitle: data.bookTitle,
+            branch: data.branch
+          });
 
           // Simulate async notification processing
           await new Promise((resolve) => setTimeout(resolve, 500));
 
-          console.log(
-            "[notification-worker] PROCESSED notification:",
-            data
-          );
+          log("info", "processed notification", {
+            service: "notification-worker",
+            holdId: data.holdId,
+            patronName: data.patronName,
+            bookTitle: data.bookTitle,
+            branch: data.branch
+          });
 
           channel.ack(message);
         } catch (error) {
-          console.error(
-            "[notification-worker] failed to process message:",
-            error.message
-          );
+          log("error", "failed to process notification", {
+            service: "notification-worker",
+            error: error.message
+          });
 
           channel.nack(message, false, true);
         }
       });
 
       connection.on("close", () => {
-        console.error(
-          "[notification-worker] RabbitMQ connection closed"
-        );
+        log("error", "RabbitMQ connection closed", {
+          service: "notification-worker"
+        });
+
         process.exit(1);
       });
 
       connection.on("error", (error) => {
-        console.error(
-          "[notification-worker] RabbitMQ connection error:",
-          error.message
-        );
+        log("error", "RabbitMQ connection error", {
+          service: "notification-worker",
+          error: error.message
+        });
       });
 
       break;
     } catch (error) {
-      console.error(
-        `[notification-worker] RabbitMQ not ready: ${error.message}. Retrying in 3 seconds...`
-      );
+      log("warn", "RabbitMQ not ready, retrying", {
+        service: "notification-worker",
+        error: error.message,
+        retryInSeconds: 3
+      });
 
       await new Promise((resolve) => setTimeout(resolve, 3000));
     }

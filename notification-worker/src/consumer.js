@@ -1,4 +1,5 @@
 import amqp from "amqplib";
+import { log } from "./observability.js";
 
 const RABBITMQ_URL =
   process.env.RABBITMQ_URL || "amqp://rabbitmq:5672";
@@ -8,9 +9,10 @@ const QUEUE_NAME = "hold-notifications";
 const SLOW_MODE_DELAY_MS = 5000;
 
 // Shared mutable state, flipped at runtime by the /fault admin endpoint.
-// Valid values: "none" (normal processing), "crash" (stop consuming
-// entirely, so messages pile up in the queue), "slow" (keep consuming,
-// but only after a delay).
+// Valid values:
+// "none"  = normal processing
+// "crash" = stop consuming so messages remain queued
+// "slow"  = process messages with an artificial delay
 export const state = {
   faultMode: process.env.FAULT_MODE || "none",
 };
@@ -33,39 +35,49 @@ const handleMessage = async (channel, msg) => {
   try {
     payload = JSON.parse(msg.content.toString());
   } catch (error) {
-    console.error(
-      `[notification-worker] received malformed message, discarding: ${error.message}`
-    );
+    log("error", "received malformed message, discarding", {
+      service: "notification-worker",
+      error: error.message,
+    });
+
     channel.ack(msg);
     return;
   }
 
-  console.log(
-    `[notification-worker] picked up hold notification ${payload.holdId} ` +
-      `for ${payload.patronName}`
-  );
+  log("info", "picked up hold notification", {
+    service: "notification-worker",
+    holdId: payload.holdId,
+    patronName: payload.patronName,
+    bookTitle: payload.bookTitle,
+    branch: payload.branch,
+  });
 
   if (state.faultMode === "slow") {
-    console.log(
-      `[notification-worker] FAULT MODE slow: delaying ${payload.holdId} ` +
-        `by ${SLOW_MODE_DELAY_MS}ms before processing`
-    );
+    log("warn", "slow fault mode delaying notification", {
+      service: "notification-worker",
+      holdId: payload.holdId,
+      delayMs: SLOW_MODE_DELAY_MS,
+    });
+
     await delay(SLOW_MODE_DELAY_MS);
   }
 
-  // Simulated notification delivery. In production this would call an
-  // email/SMS provider; here we just log what would have been sent.
-  console.log(
-    `[notification-worker] notified ${payload.patronName}: your hold on ` +
-      `"${payload.bookTitle}" at ${payload.branch} is confirmed`
-  );
+  // Simulated notification delivery.
+  // In production this could call an email or SMS provider.
+  log("info", "processed hold notification", {
+    service: "notification-worker",
+    holdId: payload.holdId,
+    patronName: payload.patronName,
+    bookTitle: payload.bookTitle,
+    branch: payload.branch,
+  });
 
   channel.ack(msg);
 };
 
 /*
- * Begin (or resume) pulling messages off the queue. Safe to call when
- * already subscribed - it no-ops in that case.
+ * Begin or resume consuming messages.
+ * If already subscribed, this does nothing.
  */
 export const subscribe = async () => {
   if (!channelRef || consumerTag) {
@@ -76,21 +88,26 @@ export const subscribe = async () => {
     QUEUE_NAME,
     (msg) => {
       handleMessage(channelRef, msg).catch((error) => {
-        console.error(
-          `[notification-worker] unexpected error handling message: ${error.message}`
-        );
-        channelRef.nack(msg, false, true);
+        log("error", "unexpected error handling message", {
+          service: "notification-worker",
+          error: error.message,
+        });
+
+        if (msg) {
+          channelRef.nack(msg, false, true);
+        }
       });
     }
   );
 
   consumerTag = tag;
 
-  console.log(
-    `[notification-worker] subscribed to "${QUEUE_NAME}" (consumer ${tag})`
-  );
+  log("info", "subscribed to RabbitMQ queue", {
+    service: "notification-worker",
+    queue: QUEUE_NAME,
+    consumerTag: tag,
+  });
 };
-
 
 export const unsubscribe = async () => {
   if (!channelRef || !consumerTag) {
@@ -102,33 +119,40 @@ export const unsubscribe = async () => {
 
   await channelRef.cancel(tag);
 
-  console.log(
-    `[notification-worker] unsubscribed from "${QUEUE_NAME}" ` +
-      `(consumer ${tag}) - messages will now queue up`
-  );
+  log("warn", "unsubscribed from RabbitMQ queue", {
+    service: "notification-worker",
+    queue: QUEUE_NAME,
+    consumerTag: tag,
+    messageBehavior: "new messages will remain queued",
+  });
 };
 
 export const startConsumer = async () => {
   const connection = await amqp.connect(RABBITMQ_URL);
   const channel = await connection.createChannel();
 
-  await channel.assertQueue(QUEUE_NAME, { durable: true });
+  await channel.assertQueue(QUEUE_NAME, {
+    durable: true,
+  });
 
-  
-  await channel.prefetch(1);
+  channel.prefetch(1);
 
   channelRef = channel;
 
-  console.log(
-    `[notification-worker] connected to rabbitmq, ready on "${QUEUE_NAME}"`
-  );
+  log("info", "connected to RabbitMQ", {
+    service: "notification-worker",
+    queue: QUEUE_NAME,
+  });
 
   if (state.faultMode !== "crash") {
     await subscribe();
   } else {
-    console.log(
-      `[notification-worker] starting in crash mode - not consuming yet`
-    );
+    log("warn", "starting in crash fault mode", {
+      service: "notification-worker",
+      queue: QUEUE_NAME,
+      faultMode: state.faultMode,
+      messageBehavior: "messages will remain queued",
+    });
   }
 
   return channel;
