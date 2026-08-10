@@ -1,4 +1,9 @@
 import express from 'express';
+import {
+  log,
+  metricsHandler,
+  requestMetricsMiddleware
+} from './observability.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -99,12 +104,16 @@ function getLatency() {
   return 250 + Math.random() * 140;
 }
 
+app.use(requestMetricsMiddleware);
+
 app.get('/health', (req, res) => {
   return res.json({
     status: 'ok',
     service: 'catalog-service',
   });
 });
+
+app.get('/metrics', metricsHandler);
 
 app.get('/catalog/search', async (req, res) => {
   const title =
@@ -126,7 +135,6 @@ app.get('/catalog/search', async (req, res) => {
   await delay(getLatency());
 
   // Simulate a 0.5% temporary failure rate.
-  // This gives the service margin above the 99% reliability SLO.
   if (Math.random() < 0.005) {
     return res.status(503).json({
       error: 'catalog temporarily unavailable',
@@ -156,5 +164,8 @@ app.get('/catalog/search', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`catalog-service listening on port ${PORT}`);
+  log('info', 'catalog-service started', {
+    service: 'catalog-service',
+    port: Number(PORT),
+  });
 });
