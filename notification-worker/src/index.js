@@ -12,7 +12,7 @@ import {
 } from "./consumer.js";
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000; 
 
 app.use(express.json());
 app.use(requestMetricsMiddleware);
@@ -23,7 +23,7 @@ app.get("/health", (req, res) => {
 
 app.get("/metrics", metricsHandler);
 
-const VALID_FAULT_MODES = ["none", "crash", "slow"];
+const VALID_FAULT_MODES = ["none", "crash", "slow", "kill"];
 
 app.post("/fault/:mode", async (req, res) => {
   const { mode } = req.params;

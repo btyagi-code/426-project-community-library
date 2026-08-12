@@ -13,6 +13,7 @@ const SLOW_MODE_DELAY_MS = 5000;
 // "none"  = normal processing
 // "crash" = stop consuming so messages remain queued
 // "slow"  = process messages with an artificial delay
+// "kill"  = completely terminates mid-consumption; triggers restart into normal processing
 export const state = {
   faultMode: process.env.FAULT_MODE || "none",
 };
@@ -53,13 +54,22 @@ const handleMessage = async (channel, msg) => {
   });
 
   if (state.faultMode === "slow") {
-    log("warn", "slow fault mode delaying notification", {
+    log("warn", "slow fault mode: delaying notification", {
       service: "notification-worker",
       holdId: payload.holdId,
       delayMs: SLOW_MODE_DELAY_MS,
     });
 
     await delay(SLOW_MODE_DELAY_MS);
+  }
+
+  if (state.faultMode === "kill") {
+    log("error", "kill fault mode: terminating while processing notification", {
+      service: "notification-worker",
+      holdId: payload.holdId,
+    });
+
+    process.exit(1);
   }
 
   // Simulated notification delivery.
@@ -93,6 +103,7 @@ export const subscribe = async () => {
           error: error.message,
         });
 
+        // if job is unprocessed, flag it as unacknowledged and retain it on the queue
         if (msg) {
           channelRef.nack(msg, false, true);
         }
