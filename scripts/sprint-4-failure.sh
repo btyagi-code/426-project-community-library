@@ -15,6 +15,7 @@ trap restore_worker EXIT
 
 echo "Stopping notification consumption..."
 curl -fsS -X POST "$WORKER_URL/fault/crash"
+echo
 
 echo
 echo "Creating a hold while the worker is unavailable..."
@@ -25,20 +26,30 @@ curl -fsS -X POST "$HOLDS_URL/holds" \
     \"bookTitle\": \"Dune $RUN_ID\",
     \"branch\": \"East\"
   }"
+echo  
 
 sleep 1
 
 echo
-echo "RabbitMQ queue state:"
+echo "RabbitMQ queue state (after /hold request):"
 docker compose exec -T rabbitmq \
   rabbitmqctl list_queues \
   name messages_ready messages_unacknowledged
+echo  
 
 echo
 echo "Restoring notification processing..."
 curl -fsS -X POST "$WORKER_URL/fault/none"
+echo  
 
 sleep 2
+
+echo
+echo "RabbitMQ queue state (after resumed worker handles queued job):"
+docker compose exec -T rabbitmq \
+  rabbitmqctl list_queues \
+  name messages_ready messages_unacknowledged
+echo
 
 echo
 echo "Producer and worker logs:"
