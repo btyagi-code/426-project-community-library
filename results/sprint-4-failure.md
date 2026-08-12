@@ -1,19 +1,21 @@
 # Sprint 4 Failure Scenario
 
-For Sprint 4, our failure scenario fault injects unavailability for `notification-worker`, while the rest of the system remains completely functional. Normally, when a user creates a hold, the `holds-service` first processes and saves the hold, then forwards a hold notification job to the RabbitMQ brokering queue. The available `notification-worker` handles the job from the queue, processes the notification in the background, and upon completion, signals job completion so RabbitMQ can officially remove the job from the queue.
+For Sprint 4, our failure scenario fault injects unavailability for `notification-worker`, while the rest of the system remains completely functional. Normally, when a user creates a hold, the `holds-service` first processes and saves the hold, then forwards a hold notification job to the RabbitMQ brokering queue. The available `notification-worker` handles the notification job from the queue, processes the notification in the background, and upon completion, signals job completion so RabbitMQ can officially remove the job from the queue.
 
 The failed worker event and subsequent system response is as follows. Please see the sprint-4-failure.sh script for the entire process and to conveniently observe the scenario.
+
 Once the system is up, the failure triggers by terminating the `notification-worker` connection to RabbitMQ, thus disabling its ability to handle a queued job: 
 
 ```bash
 curl -fsS -X POST "$WORKER_URL/fault/crash"
 ```
+
 The worker process itself remains running, as do RabbitMQ and the other system services. 
 
-Despite the unavailable `notification-worker`, the user can make a hold that processes successfully because the notification is handled asynchronously and occurs after the hold request completes. The notification message is still sent to RabbitMQ, but it stays in the `hold-notifications` queue because  worker available to process it. 
+Despite the unavailable `notification-worker`, the user can make a hold that processes successfully because the notification is handled asynchronously and occurs after the hold request completes. The notification job is still sent to RabbitMQ, but it stays in the `hold-notifications` queue because no worker is available to process it. 
 Although there is no worker available, the system can degrade gracefully and uphold its core functionality (e.g. process user requests, queue up jobs) instead of failing outright.
 
-The hold functionality executes fully, just with a caveat that subsequent notification processing is suspended. `notification-worker` can resume its notification job handling by re-establishing its RabbitMQ connection (via switching fault state in the `/fault/:mode` endpoint):
+`notification-worker` can resume its notification job handling by re-establishing its RabbitMQ connection (via switching fault state in the `/fault/:mode` endpoint):
 
 ```bash
 curl -fsS -X POST "$WORKER_URL/fault/none"
