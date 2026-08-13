@@ -7,6 +7,7 @@ const RABBITMQ_URL =
 const QUEUE_NAME = "hold-notifications";
 
 const SLOW_MODE_DELAY_MS = 5000;
+const KILL_MODE_DELAY_MS = 2000;
 
 // Shared mutable state, flipped at runtime by the /fault admin endpoint.
 // Valid values:
@@ -64,6 +65,8 @@ const handleMessage = async (channel, msg) => {
   }
 
   if (state.faultMode === "kill") {
+    await delay(KILL_MODE_DELAY_MS);
+
     log("error", "kill fault mode: terminating while processing notification", {
       service: "notification-worker",
       holdId: payload.holdId,
