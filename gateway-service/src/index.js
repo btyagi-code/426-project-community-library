@@ -4,7 +4,8 @@ import { createClient } from 'redis';
 import {
   log,
   metricsHandler,
-  requestMetricsMiddleware
+  requestMetricsMiddleware,
+  observeCache
 } from './observability.js';
 
 const app = express();
@@ -150,6 +151,8 @@ app.get('/availability', async (req, res) => {
         cacheKey
       });
 
+      observeCache('hit');
+
       res.set('X-Cache', 'HIT');
       res.set(
         'X-Cache-Instance',
@@ -176,6 +179,8 @@ app.get('/availability', async (req, res) => {
     title,
     cacheKey
   });
+
+  observeCache('hit');
 
   await delay(
     ownProcessingLatency()
