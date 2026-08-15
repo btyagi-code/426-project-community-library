@@ -80,6 +80,7 @@ The `/metrics` endpoint exposes Prometheus metrics including:
 
 * request count
 * response-time histogram
+* 
 
 Prometheus scrapes the metrics endpoints from all custom services.
 
@@ -125,12 +126,12 @@ docker compose logs
 
 ## Environment Variables
 
-| Variable              | Development Value                | Purpose                                                     |
-| --------------------- | -------------------------------- | ----------------------------------------------------------- |
-| `CATALOG_SERVICE_URL` | `http://catalog-ambassador:3000` | Gateway URL for catalog requests                            |
-| `REDIS_URL`           | `redis://redis:6379`             | Redis connection used by gateway services                   |
-| `RABBITMQ_URL`        | `amqp://rabbitmq:5672`           | RabbitMQ connection used by holds and notification services |
-| `FAULT_MODE`          | `none`                           | Controls notification-worker failure mode                   |
+| Variable | Development Value | Purpose | If missing/not set in Compose: |
+| ---- | ----------------- | ---- | ---------|
+| `CATALOG_SERVICE_URL` | gateway-service: `http://catalog-ambassador:3000` <br> catalog-ambassador: `http://catalog-service:3000` | Gateway URL for catalog requests                            | assumes default hostname (development value)       |
+| `REDIS_URL`           | `redis://redis:6379`             | Redis connection used by gateway service | assumes default connection string (development value) |
+| `RABBITMQ_URL`        | `amqp://rabbitmq:5672`           | RabbitMQ connection used by holds and notification services | assumes default connection string (development value) |
+| `FAULT_MODE`          | `none`                           | Controls notification-worker failure mode | assumes default value (development value) |
 
 Default development values are provided in `docker-compose.yml`.
 
