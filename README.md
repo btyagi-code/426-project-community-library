@@ -80,9 +80,12 @@ The `/metrics` endpoint exposes Prometheus metrics including:
 
 * request count
 * response-time histogram
-* 
 
-Prometheus scrapes the metrics endpoints from all custom services.
+`/metrics` in the cached `gateway-service` also exposes: 
+* cache hit/miss count
+
+
+Prometheus scrapes the metrics endpoints from all custom services. 
 
 Prometheus targets can be viewed at:
 
