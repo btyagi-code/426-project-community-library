@@ -55,7 +55,7 @@ export default function () {
       }
     },
     'X-Cache has header': (r) => {
-      r.headers['X-Cache'] === 'HIT' || r.headers['X-Cache'] === 'MISS'
+      return (r.headers['X-Cache'] === 'HIT' || r.headers['X-Cache'] === 'MISS');
     },
   });
 
