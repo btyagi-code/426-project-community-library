@@ -14,7 +14,6 @@ const DEFAULT_BUCKETS_MS = [
 
 const requests = new Map();
 const histograms = new Map();
-const cacheResults = new Map();
 
 const escapeLabel = (value) =>
   String(value)
@@ -62,10 +61,6 @@ const observeRequest = (method, path, status, durationMs) => {
     }
   });
 };
-
-export const observeCache = (result) => {
-  cacheResults.set(result, (cacheResults.get(result) || 0) + 1);
-}
 
 // Structured JSON logger
 export const log = (level, message, fields = {}) => {
@@ -184,17 +179,6 @@ export const metricsHandler = (req, res) => {
         path,
         status
       )}} ${histogram.count}`
-    );
-  }
-
-  lines.push(
-    '# HELP cache_results_total Cache hit/miss results for cache reads.',
-    '# TYPE cache_results_total counter'
-  );
-
-  for (const [result, count] of cacheResults.entries()) {
-    lines.push(
-      `cache_results_total{result="${escapeLabel(result)}"} ${count}`
     );
   }
 

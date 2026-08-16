@@ -180,7 +180,7 @@ app.get('/availability', async (req, res) => {
     cacheKey
   });
 
-  observeCache('hit');
+  observeCache('miss');
 
   await delay(
     ownProcessingLatency()
