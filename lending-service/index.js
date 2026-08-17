@@ -22,11 +22,24 @@ app.get('/health', (req, res) => {
 app.get('/metrics', metricsHandler);
 
 app.post('/loan', async (req, res) => {
+  const start = Date.now();
+
   try {
     const result = await checkout(req.body);
 
     if (!result.ok) {
-      return res.status(result.status).json({
+      const elapsedMs = Date.now() - start;
+
+      log('warn', 'loan request rejected', {
+        service: 'lending-service',
+        method: req.method,
+        path: req.originalUrl,
+        status: result.status,
+        responseTimeMs: elapsedMs,
+        error: result.error
+      });
+
+      return res.status(result.status).json({ 
         error: result.error
       });
     }
@@ -36,11 +49,18 @@ app.post('/loan', async (req, res) => {
     });
 
   } catch (error) {
+    const elapsedMs = Date.now() - start; 
+
+    // log each unexpected exception
     log('error', 'unable to place loan', {
       service: 'lending-service',
+      method: req.method,
+      path: req.originalUrl,
+      responseTimeMs: elapsedMs,
       error: error.message
     });
 
+    // response contains generic error message to conceal sensitive unhandled exception details
     return res.status(500).json({
       error: 'Unable to place loan'
     });
